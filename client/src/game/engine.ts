@@ -1,0 +1,371 @@
+import {
+  type PlayerState,
+  type PowerUpType,
+  type PowerUpSpawn,
+  type Obstacle,
+  type StickyPatch,
+  type Decoy,
+  type GameMap,
+  POWER_UP_CONFIGS,
+  ALL_POWER_UP_TYPES,
+  PLAYER_BASE_SPEED,
+  SPEED_SURGE_MULTIPLIER,
+  PLAYER_SIZE,
+  TAG_RADIUS,
+  POWER_UP_PICKUP_RADIUS,
+  FREEZE_RADIUS,
+  BINK_DASH_DISTANCE,
+  STICKY_PATCH_RADIUS,
+  STICKY_SLOW_MULTIPLIER,
+  PLAYER_COLORS,
+} from "chase-tag-shared";
+
+export interface LocalGameState {
+  players: PlayerState[];
+  spawns: PowerUpSpawn[];
+  stickyPatches: StickyPatch[];
+  decoys: Decoy[];
+  map: GameMap;
+  roundTimeRemaining: number;
+  roundLength: number;
+  running: boolean;
+  ended: boolean;
+  result: { loserId: string; loserName: string } | null;
+}
+
+export interface LocalPlayerInput {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+  usePowerUp: boolean;
+}
+
+const ZERO_INPUT: LocalPlayerInput = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  usePowerUp: false,
+};
+
+export function createLocalGame(
+  map: GameMap,
+  playerNames: string[],
+  roundLength: number
+): LocalGameState {
+  const players: PlayerState[] = playerNames.map((name, i) => ({
+    id: `local_${i}`,
+    name,
+    x: map.spawnPoints[i].x,
+    y: map.spawnPoints[i].y,
+    vx: 0,
+    vy: 0,
+    isIt: i === 0,
+    alive: true,
+    facing: { x: 1, y: 0 },
+    color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+    score: 0,
+    ready: true,
+    activePowerUp: null,
+    powerUpCooldown: 0,
+    heldPowerUp: null,
+  }));
+
+  return {
+    players,
+    spawns: [],
+    stickyPatches: [],
+    decoys: [],
+    map,
+    roundTimeRemaining: roundLength,
+    roundLength,
+    running: false,
+    ended: false,
+    result: null,
+  };
+}
+
+function rectCollides(
+  ax: number, ay: number, aw: number, ah: number,
+  bx: number, by: number, bw: number, bh: number
+): boolean {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function collidesWithObstacles(
+  x: number, y: number, obstacles: Obstacle[]
+): boolean {
+  for (const o of obstacles) {
+    if (rectCollides(x, y, PLAYER_SIZE * 2, PLAYER_SIZE * 2, o.x, o.y, o.w, o.h)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+export function spawnPowerUps(state: LocalGameState) {
+  if (state.spawns.length >= 3) return;
+  const availableSlots = state.map.powerUpSpawns.filter(
+    ps => !state.spawns.some(s => s.x === ps.x && s.y === ps.y)
+  );
+  if (availableSlots.length === 0) return;
+
+  const slot = availableSlots[Math.floor(Math.random() * availableSlots.length)];
+  const type = ALL_POWER_UP_TYPES[Math.floor(Math.random() * ALL_POWER_UP_TYPES.length)];
+
+  state.spawns.push({
+    id: `spawn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    type,
+    x: slot.x,
+    y: slot.y,
+    respawnTimer: 0,
+  });
+}
+
+export function updateLocalGame(
+  state: LocalGameState,
+  inputs: LocalPlayerInput[],
+  dt: number
+): void {
+  if (!state.running || state.ended) return;
+
+  state.roundTimeRemaining -= dt / 1000;
+  if (state.roundTimeRemaining <= 0) {
+    state.roundTimeRemaining = 0;
+    const itPlayer = state.players.find(p => p.isIt);
+    state.ended = true;
+    state.running = false;
+    state.result = {
+      loserId: itPlayer?.id ?? "",
+      loserName: itPlayer?.name ?? "Unknown",
+    };
+    return;
+  }
+
+  // Update power-up timers
+  for (const player of state.players) {
+    if (player.activePowerUp) {
+      player.activePowerUp.remainingMs -= dt;
+      if (player.activePowerUp.remainingMs <= 0) {
+        player.activePowerUp = null;
+      }
+    }
+    if (player.powerUpCooldown > 0) {
+      player.powerUpCooldown -= dt;
+      if (player.powerUpCooldown < 0) player.powerUpCooldown = 0;
+    }
+  }
+
+  // Update sticky patches
+  state.stickyPatches = state.stickyPatches.filter(sp => {
+    sp.remainingMs -= dt;
+    return sp.remainingMs > 0;
+  });
+
+  // Update decoys
+  state.decoys = state.decoys.filter(d => {
+    d.remainingMs -= dt;
+    d.x += d.vx;
+    d.y += d.vy;
+    d.vx *= 0.97;
+    d.vy *= 0.97;
+    return d.remainingMs > 0;
+  });
+
+  // Move players
+  for (let i = 0; i < state.players.length; i++) {
+    const player = state.players[i];
+    const input = inputs[i] ?? ZERO_INPUT;
+
+    if (!player.alive) continue;
+
+    // Check if frozen
+    const isFrozen = player.activePowerUp?.type === "freeze_pulse";
+
+    let speed = PLAYER_BASE_SPEED;
+    if (player.activePowerUp?.type === "speed_surge") {
+      speed *= SPEED_SURGE_MULTIPLIER;
+    }
+
+    // Check sticky patches
+    for (const patch of state.stickyPatches) {
+      if (dist(player, patch) < STICKY_PATCH_RADIUS) {
+        speed *= STICKY_SLOW_MULTIPLIER;
+      }
+    }
+
+    let dx = 0, dy = 0;
+    if (!isFrozen) {
+      if (input.up) dy -= 1;
+      if (input.down) dy += 1;
+      if (input.left) dx -= 1;
+      if (input.right) dx += 1;
+
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0) {
+        dx = (dx / len) * speed;
+        dy = (dy / len) * speed;
+        player.facing = { x: dx / speed, y: dy / speed };
+      }
+    }
+
+    player.vx = dx;
+    player.vy = dy;
+
+    const newX = player.x + dx;
+    const newY = player.y + dy;
+
+    if (!collidesWithObstacles(newX, player.y, state.map.obstacles)) {
+      player.x = newX;
+    }
+    if (!collidesWithObstacles(player.x, newY, state.map.obstacles)) {
+      player.y = newY;
+    }
+
+    // Clamp to map
+    player.x = Math.max(0, Math.min(state.map.width - PLAYER_SIZE * 2, player.x));
+    player.y = Math.max(0, Math.min(state.map.height - PLAYER_SIZE * 2, player.y));
+  }
+
+  // Power-up pickup
+  for (const player of state.players) {
+    for (let si = state.spawns.length - 1; si >= 0; si--) {
+      const spawn = state.spawns[si];
+      if (dist(player, spawn) < POWER_UP_PICKUP_RADIUS) {
+        if (!player.heldPowerUp) {
+          player.heldPowerUp = spawn.type;
+          state.spawns.splice(si, 1);
+        }
+      }
+    }
+  }
+
+  // Use power-up
+  for (const player of state.players) {
+    const input = inputs[state.players.indexOf(player)];
+    if (input?.usePowerUp && player.heldPowerUp && player.powerUpCooldown <= 0) {
+      activatePowerUp(state, player, player.heldPowerUp);
+      const config = POWER_UP_CONFIGS[player.heldPowerUp];
+      player.powerUpCooldown = config.cooldownMs;
+      player.heldPowerUp = null;
+    }
+  }
+
+  // Tag check
+  const itPlayer = state.players.find(p => p.isIt);
+  if (itPlayer) {
+    for (const other of state.players) {
+      if (other.id === itPlayer.id) continue;
+      if (!other.alive) continue;
+
+      const distance = dist(itPlayer, other);
+
+      if (distance < TAG_RADIUS) {
+        // Check safe bubble
+        if (other.activePowerUp?.type === "safe_bubble") {
+          other.activePowerUp = null;
+          continue;
+        }
+
+        // Tag! Swap roles
+        itPlayer.isIt = false;
+        other.isIt = true;
+        itPlayer.score += 1;
+        break;
+      }
+    }
+  }
+}
+
+function activatePowerUp(
+  state: LocalGameState,
+  player: PlayerState,
+  type: PowerUpType
+): void {
+  switch (type) {
+    case "speed_surge":
+      player.activePowerUp = {
+        type,
+        remainingMs: POWER_UP_CONFIGS.speed_surge.durationMs,
+        durationMs: POWER_UP_CONFIGS.speed_surge.durationMs,
+      };
+      break;
+
+    case "freeze_pulse": {
+      let closest: PlayerState | null = null;
+      let closestDist = Infinity;
+      for (const other of state.players) {
+        if (other.id === player.id) continue;
+        const d = dist(player, other);
+        if (d < FREEZE_RADIUS && d < closestDist) {
+          closestDist = d;
+          closest = other;
+        }
+      }
+      if (closest) {
+        closest.activePowerUp = {
+          type: "freeze_pulse",
+          remainingMs: POWER_UP_CONFIGS.freeze_pulse.durationMs,
+          durationMs: POWER_UP_CONFIGS.freeze_pulse.durationMs,
+        };
+      }
+      break;
+    }
+
+    case "ghost_step":
+      player.activePowerUp = {
+        type,
+        remainingMs: POWER_UP_CONFIGS.ghost_step.durationMs,
+        durationMs: POWER_UP_CONFIGS.ghost_step.durationMs,
+      };
+      break;
+
+    case "blink_dash": {
+      const dashX = player.x + player.facing.x * BINK_DASH_DISTANCE;
+      const dashY = player.y + player.facing.y * BINK_DASH_DISTANCE;
+      const clampedX = Math.max(0, Math.min(state.map.width - PLAYER_SIZE * 2, dashX));
+      const clampedY = Math.max(0, Math.min(state.map.height - PLAYER_SIZE * 2, dashY));
+      if (!collidesWithObstacles(clampedX, clampedY, state.map.obstacles)) {
+        player.x = clampedX;
+        player.y = clampedY;
+      }
+      break;
+    }
+
+    case "mirror_decoy":
+      state.decoys.push({
+        id: `decoy_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        ownerId: player.id,
+        x: player.x,
+        y: player.y,
+        vx: -player.facing.x * 2,
+        vy: -player.facing.y * 2,
+        remainingMs: POWER_UP_CONFIGS.mirror_decoy.durationMs,
+      });
+      break;
+
+    case "safe_bubble":
+      player.activePowerUp = {
+        type,
+        remainingMs: POWER_UP_CONFIGS.safe_bubble.durationMs,
+        durationMs: POWER_UP_CONFIGS.safe_bubble.durationMs,
+      };
+      break;
+
+    case "sticky_patch":
+      state.stickyPatches.push({
+        id: `sticky_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        x: player.x,
+        y: player.y,
+        remainingMs: POWER_UP_CONFIGS.sticky_patch.durationMs,
+      });
+      break;
+  }
+}
