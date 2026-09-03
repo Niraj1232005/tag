@@ -33,6 +33,16 @@ const colyseus = require("colyseus") as any;
 
 const { Room } = colyseus;
 
+const ROOM_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function generateRoomCode(length = 6): string {
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+  }
+  return code;
+}
+
 function dist(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
   const dy = ay - by;
@@ -111,6 +121,66 @@ function playerList(state: TagRoomStateSchema): PlayerSchema[] {
   return out;
 }
 
+function serializePlayers(state: TagRoomStateSchema) {
+  return playerList(state).map(p => ({
+    id: p.id,
+    name: p.name,
+    x: p.x,
+    y: p.y,
+    vx: p.vx,
+    vy: p.vy,
+    isIt: p.isIt,
+    alive: p.alive,
+    facingX: p.facingX,
+    facingY: p.facingY,
+    color: p.color,
+    score: p.score,
+    ready: p.ready,
+    activePowerUpType: p.activePowerUpType,
+    activePowerUpRemaining: p.activePowerUpRemaining,
+    activePowerUpDuration: p.activePowerUpDuration,
+    powerUpCooldown: p.powerUpCooldown,
+    heldPowerUp: p.heldPowerUp,
+  }));
+}
+
+function serializeSpawns(state: TagRoomStateSchema) {
+  const out: Array<{ id: string; type: number; x: number; y: number; respawnTimer: number }> = [];
+  state.spawns.forEach(s => out.push({
+    id: s.id,
+    type: s.type,
+    x: s.x,
+    y: s.y,
+    respawnTimer: s.respawnTimer,
+  }));
+  return out;
+}
+
+function serializeStickyPatches(state: TagRoomStateSchema) {
+  const out: Array<{ id: string; x: number; y: number; remainingMs: number }> = [];
+  state.stickyPatches.forEach(s => out.push({
+    id: s.id,
+    x: s.x,
+    y: s.y,
+    remainingMs: s.remainingMs,
+  }));
+  return out;
+}
+
+function serializeDecoys(state: TagRoomStateSchema) {
+  const out: Array<{ id: string; ownerId: string; x: number; y: number; vx: number; vy: number; remainingMs: number }> = [];
+  state.decoys.forEach(d => out.push({
+    id: d.id,
+    ownerId: d.ownerId,
+    x: d.x,
+    y: d.y,
+    vx: d.vx,
+    vy: d.vy,
+    remainingMs: d.remainingMs,
+  }));
+  return out;
+}
+
 export class TagRoom extends (Room as unknown as typeof RoomType) {
   get s(): TagRoomStateSchema {
     return this.state as TagRoomStateSchema;
@@ -129,7 +199,9 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   };
   private map: GameMap = MAPS.arena;
 
-  onCreate(options: { config?: RoomConfig; hostKey?: string }) {
+  onCreate(options: { config?: RoomConfig; hostKey?: string; roomCode?: string }) {
+    const roomCode = (options.roomCode ?? generateRoomCode()).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    this.setMetadata({ roomCode });
     this.config = options.config ?? this.config;
     this.hostKey = options.hostKey ?? null;
     this.map = MAPS[this.config.mapName] ?? MAPS.arena;
@@ -154,10 +226,15 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       this.startGame();
     });
 
+    this.onMessage("requestLobbyState", (client: Client) => {
+      this.sendLobbyState(client);
+    });
+
     this.onMessage("ready", (client: Client) => {
       const player = this.s.players.get(client.sessionId);
       if (player) {
         player.ready = !player.ready;
+        this.sendLobbyState();
       }
     });
 
@@ -208,6 +285,8 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     this.playerInputs.set(client.sessionId, {
       up: false, down: false, left: false, right: false, usePowerUp: false,
     });
+
+    this.sendLobbyState();
   }
 
   onLeave(client: Client) {
@@ -229,12 +308,45 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       const first = playerList(this.s)[0];
       first.isIt = true;
     }
+
+    this.sendLobbyState();
+  }
+
+  private sendLobbyState(client?: Client) {
+    const payload = {
+      hostId: this.hostId ?? "",
+      players: serializePlayers(this.s),
+      count: this.s.players.size,
+      maxClients: this.maxClients,
+      roomCode: this.metadata?.roomCode ?? "",
+    };
+
+    if (client) {
+      client.send("lobbyState", payload);
+    } else {
+      this.broadcast("lobbyState", payload);
+    }
+  }
+
+  private sendGameFrame() {
+    this.broadcast("gameFrame", {
+      hostId: this.hostId ?? "",
+      roomCode: this.metadata?.roomCode ?? "",
+      gameStarted: this.s.gameStarted,
+      roundTimeRemaining: this.s.roundTimeRemaining,
+      mapName: this.s.mapName,
+      players: serializePlayers(this.s),
+      spawns: serializeSpawns(this.s),
+      stickyPatches: serializeStickyPatches(this.s),
+      decoys: serializeDecoys(this.s),
+    });
   }
 
   startGame() {
     this.s.gameStarted = true;
     this.s.roundTimeRemaining = this.config.roundLength;
 
+    const initialItId = this.hostId ?? playerList(this.s)[0]?.id ?? "";
     let idx = 0;
     this.s.players.forEach((player, sessionId) => {
       const spawn = this.map.spawnPoints[idx % this.map.spawnPoints.length];
@@ -242,7 +354,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       player.y = spawn.y;
       player.vx = 0;
       player.vy = 0;
-      player.isIt = idx === 0;
+      player.isIt = player.id === initialItId;
       player.alive = true;
       player.score = 0;
       player.activePowerUpType = -1;
@@ -264,6 +376,8 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       this.powerUpInterval = setInterval(() => this.spawnPowerUp(), 12000);
     }
 
+    this.sendLobbyState();
+    this.sendGameFrame();
     this.broadcast("gameStarted", {});
   }
 
@@ -421,6 +535,8 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
         }
       }
     }
+
+    this.sendGameFrame();
   }
 
   activatePowerUp(player: PlayerSchema, type: PowerUpType) {
@@ -535,6 +651,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       wasIt: p.isIt,
     }));
 
+    this.sendLobbyState();
     this.broadcast("roundEnd", {
       loserId: itPlayer?.id ?? "",
       loserName: itPlayer?.name ?? "Unknown",

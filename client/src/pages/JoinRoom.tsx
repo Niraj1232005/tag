@@ -23,13 +23,13 @@ export default function JoinRoom() {
         <h2 style={styles.heading}>Join Room</h2>
 
         <div style={styles.field}>
-          <label style={styles.label}>Room ID</label>
+          <label style={styles.label}>Room Code</label>
           <input
             value={roomCode}
-            onChange={e => setRoomCode(e.target.value.trim())}
-            placeholder="Enter room ID"
+            onChange={e => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            placeholder="Enter room code"
             style={{ ...styles.input, textAlign: "center", letterSpacing: "0.2em", fontSize: "1.3rem" }}
-            maxLength={32}
+            maxLength={6}
           />
         </div>
 

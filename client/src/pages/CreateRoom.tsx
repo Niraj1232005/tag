@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { MAP_NAMES } from "chase-tag-shared";
 
 const MAP_KEYS = Object.keys(MAP_NAMES);
+const ROOM_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function generateRoomCode(length = 6) {
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+  }
+  return code;
+}
 
 export default function CreateRoom() {
   const navigate = useNavigate();
@@ -16,6 +25,7 @@ export default function CreateRoom() {
     if (!playerName.trim()) return;
     setCreating(true);
 
+    const code = generateRoomCode();
     const params = new URLSearchParams({
       host: "true",
       name: playerName.trim(),
@@ -24,7 +34,7 @@ export default function CreateRoom() {
       powerUpsEnabled: String(powerUps),
       hostKey: crypto.randomUUID(),
     });
-    navigate(`/online/new?${params.toString()}`);
+    navigate(`/online/${code}?${params.toString()}`);
   };
 
   return (

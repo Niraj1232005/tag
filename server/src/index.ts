@@ -12,7 +12,7 @@ const port = Number(process.env.PORT) || 2567;
 
 const gameServer = new colyseus.Server({});
 
-gameServer.define("tag_room", TagRoom);
+gameServer.define("tag_room", TagRoom).filterBy(["roomCode"]);
 
 gameServer.listen(port).then(() => {
   console.log(`Chase Tag server listening on port ${port}`);
