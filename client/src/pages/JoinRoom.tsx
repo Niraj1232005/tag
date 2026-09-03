@@ -13,11 +13,8 @@ export default function JoinRoom() {
     setJoining(true);
     setError("");
 
-    // Simulated join
-    setTimeout(() => {
-      const code = roomCode.trim().toUpperCase();
-      navigate(`/online/${code}?host=false&name=${encodeURIComponent(playerName.trim())}`);
-    }, 500);
+    const code = roomCode.trim();
+    navigate(`/online/${encodeURIComponent(code)}?host=false&name=${encodeURIComponent(playerName.trim())}`);
   };
 
   return (
@@ -26,13 +23,13 @@ export default function JoinRoom() {
         <h2 style={styles.heading}>Join Room</h2>
 
         <div style={styles.field}>
-          <label style={styles.label}>Room Code</label>
+          <label style={styles.label}>Room ID</label>
           <input
             value={roomCode}
             onChange={e => setRoomCode(e.target.value.toUpperCase())}
-            placeholder="Enter 6-letter code"
+            placeholder="Enter room ID"
             style={{ ...styles.input, textAlign: "center", letterSpacing: "0.2em", fontSize: "1.3rem" }}
-            maxLength={6}
+            maxLength={32}
           />
         </div>
 

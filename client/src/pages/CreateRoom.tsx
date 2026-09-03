@@ -16,10 +16,15 @@ export default function CreateRoom() {
     if (!playerName.trim()) return;
     setCreating(true);
 
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setTimeout(() => {
-      navigate(`/online/${code}?host=true&name=${encodeURIComponent(playerName.trim())}`);
-    }, 500);
+    const params = new URLSearchParams({
+      host: "true",
+      name: playerName.trim(),
+      roundLength: String(roundLength),
+      mapName: selectedMap,
+      powerUpsEnabled: String(powerUps),
+      hostKey: crypto.randomUUID(),
+    });
+    navigate(`/online/new?${params.toString()}`);
   };
 
   return (

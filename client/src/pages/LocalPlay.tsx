@@ -23,6 +23,7 @@ export default function LocalPlay() {
   const [roundLength, setRoundLength] = useState(120);
   const [selectedMap, setSelectedMap] = useState<string>("arena");
   const [gameStarted, setGameStarted] = useState(false);
+  const [, setRenderVersion] = useState(0);
   const [playerNames, setPlayerNames] = useState(["P1", "P2", "P3", "P4"]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,6 +55,10 @@ export default function LocalPlay() {
 
     const inputs = getInputs();
     updateLocalGame(game, inputs, dt);
+    if (game.ended) {
+      setRenderVersion(v => v + 1);
+      return;
+    }
 
     powerUpTimerRef.current += dt;
     if (powerUpTimerRef.current > 12000) {

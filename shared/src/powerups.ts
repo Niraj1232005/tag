@@ -78,6 +78,26 @@ export const POWER_UP_CONFIGS: Record<PowerUpType, PowerUpConfig> = {
 
 export const ALL_POWER_UP_TYPES: PowerUpType[] = Object.keys(POWER_UP_CONFIGS) as PowerUpType[];
 
+export const POWER_UP_TYPE_INDEX: Record<PowerUpType, number> = {
+  speed_surge: 0,
+  freeze_pulse: 1,
+  ghost_step: 2,
+  blink_dash: 3,
+  mirror_decoy: 4,
+  safe_bubble: 5,
+  sticky_patch: 6,
+};
+
+export const POWER_UP_INDEX_TO_TYPE: PowerUpType[] = [
+  "speed_surge",
+  "freeze_pulse",
+  "ghost_step",
+  "blink_dash",
+  "mirror_decoy",
+  "safe_bubble",
+  "sticky_patch",
+];
+
 export const ACTIVE_POWER_UPS: PowerUpType[] = [
   "speed_surge",
   "freeze_pulse",

@@ -10,6 +10,7 @@ import {
   MAPS,
   PLAYER_COLORS,
   POWER_UP_CONFIGS,
+  POWER_UP_INDEX_TO_TYPE,
   PLAYER_SIZE,
   HUD_HEIGHT,
 } from "chase-tag-shared";
@@ -22,10 +23,18 @@ export default function OnlineGame() {
   const navigate = useNavigate();
   const myName = searchParams.get("name") ?? "Player";
   const isHost = searchParams.get("host") === "true";
+  const hostKey = searchParams.get("hostKey") ?? undefined;
+  const roundLengthParam = searchParams.get("roundLength") ?? "120";
+  const mapNameParam = searchParams.get("mapName") ?? "arena";
+  const powerUpsEnabledParam = searchParams.get("powerUpsEnabled") ?? "true";
+  const searchString = searchParams.toString();
 
   const [status, setStatus] = useState<"connecting" | "lobby" | "playing" | "ended">("connecting");
   const [players, setPlayers] = useState<PlayerState[]>([]);
   const [roundResult, setRoundResult] = useState<any>(null);
+  const [actualRoomId, setActualRoomId] = useState(roomId ?? "");
+  const [serverHostId, setServerHostId] = useState("");
+  const [connectionError, setConnectionError] = useState("");
 
   const clientRef = useRef<Colyseus.Client | null>(null);
   const roomRef = useRef<Colyseus.Room | null>(null);
@@ -39,29 +48,64 @@ export default function OnlineGame() {
         const client = new Colyseus.Client(COLYSEUS_URL);
         clientRef.current = client;
 
-        const room = await client.joinOrCreate("tag_room", {
-          name: myName,
-          config: isHost ? {
-            roundLength: 120,
-            mapName: "arena",
-            powerUpsEnabled: true,
-          } : undefined,
-        });
+        const shouldCreateRoom = isHost && roomId === "new";
+        const joinOptions = { name: myName, hostKey };
+        const room = shouldCreateRoom
+          ? await client.create("tag_room", {
+              ...joinOptions,
+              config: {
+                roundLength: Number(roundLengthParam),
+                mapName: mapNameParam,
+                powerUpsEnabled: powerUpsEnabledParam !== "false",
+              },
+            })
+          : await client.joinById(roomId ?? "", joinOptions);
 
         roomRef.current = room;
+        setActualRoomId(room.roomId);
+        setConnectionError("");
+
+        if (shouldCreateRoom) {
+          const params = new URLSearchParams(searchString);
+          window.history.replaceState(null, "", `/online/${room.roomId}?${params.toString()}`);
+        }
 
         room.onStateChange((state: any) => {
           const p: PlayerState[] = [];
           if (state.players) {
             state.players.forEach((value: any, key: string) => {
-              p.push({ ...value, id: key });
+              p.push({
+                id: value.id || key,
+                name: value.name,
+                x: value.x,
+                y: value.y,
+                vx: value.vx,
+                vy: value.vy,
+                isIt: value.isIt,
+                alive: value.alive,
+                facing: { x: value.facingX, y: value.facingY },
+                color: value.color,
+                score: value.score,
+                ready: value.ready,
+                activePowerUp: value.activePowerUpType >= 0 ? {
+                  type: POWER_UP_INDEX_TO_TYPE[value.activePowerUpType],
+                  remainingMs: value.activePowerUpRemaining,
+                  durationMs: value.activePowerUpDuration,
+                } : null,
+                powerUpCooldown: value.powerUpCooldown,
+                heldPowerUp: value.heldPowerUp >= 0 ? POWER_UP_INDEX_TO_TYPE[value.heldPowerUp] : null,
+              });
             });
           }
           setPlayers(p);
-          if (state.gameStarted && status !== "playing") setStatus("playing");
+          setServerHostId(state.hostId ?? "");
+          if (state.gameStarted) setStatus("playing");
         });
 
-        room.onMessage("gameStarted", () => setStatus("playing"));
+        room.onMessage("gameStarted", () => {
+          setRoundResult(null);
+          setStatus("playing");
+        });
 
         room.onMessage("roundEnd", (data: any) => {
           setRoundResult(data);
@@ -71,6 +115,7 @@ export default function OnlineGame() {
         setStatus("lobby");
       } catch (err) {
         console.error("Failed to connect:", err);
+        setConnectionError(err instanceof Error ? err.message : "Unable to connect to room");
         setStatus("connecting");
       }
     };
@@ -81,7 +126,7 @@ export default function OnlineGame() {
       roomRef.current?.leave();
       cancelAnimationFrame(rafRef.current);
     };
-  }, [myName, isHost]);
+  }, [myName, isHost, hostKey, roomId, roundLengthParam, mapNameParam, powerUpsEnabledParam, searchString]);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -145,6 +190,8 @@ export default function OnlineGame() {
     };
   }, [status]);
 
+  const amHost = roomRef.current?.sessionId === serverHostId;
+
   const handleStartGame = useCallback(() => {
     roomRef.current?.send("startGame");
   }, []);
@@ -154,7 +201,7 @@ export default function OnlineGame() {
       <div style={styles.container}>
         <div style={styles.card}>
           <h2 style={styles.heading}>Connecting...</h2>
-          <p style={styles.hint}>Make sure the Colyseus server is running on {COLYSEUS_URL}</p>
+          <p style={styles.hint}>{connectionError || `Make sure the Colyseus server is running on ${COLYSEUS_URL}`}</p>
           <button onClick={() => navigate("/")} style={styles.backBtn}>Back to Menu</button>
         </div>
       </div>
@@ -177,7 +224,7 @@ export default function OnlineGame() {
             ))}
           </div>
           <div style={{ display: "flex", gap: "0.75rem" }}>
-            {isHost && (
+            {amHost && (
               <button onClick={handleStartGame} style={styles.startBtn}>Rematch</button>
             )}
             <button onClick={() => navigate("/")} style={styles.backBtn}>Main Menu</button>
@@ -191,8 +238,8 @@ export default function OnlineGame() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <h2 style={styles.heading}>Room: {roomId}</h2>
-          <p style={styles.hint}>Room code: <strong style={{ color: "#FFE66D" }}>{roomId}</strong></p>
+          <h2 style={styles.heading}>Room: {actualRoomId}</h2>
+          <p style={styles.hint}>Room code: <strong style={{ color: "#FFE66D" }}>{actualRoomId}</strong></p>
 
           <div style={{ marginBottom: "1.5rem" }}>
             <h3 style={{ color: "#aaa", fontSize: "0.85rem", textTransform: "uppercase", marginBottom: "0.5rem" }}>
@@ -211,7 +258,7 @@ export default function OnlineGame() {
             ))}
           </div>
 
-          {isHost && (
+          {amHost && (
             <button onClick={handleStartGame} style={styles.startBtn}>
               Start Game
             </button>
@@ -277,7 +324,8 @@ function renderOnlineGame(
 
   if (state.spawns) {
     state.spawns.forEach((spawn: any) => {
-      const config = POWER_UP_CONFIGS[spawn.type as keyof typeof POWER_UP_CONFIGS];
+      const type = POWER_UP_INDEX_TO_TYPE[spawn.type];
+      const config = type ? POWER_UP_CONFIGS[type] : undefined;
       if (!config) return;
       ctx.fillStyle = config.color;
       ctx.globalAlpha = 0.7 + Math.sin(Date.now() / 300) * 0.3;
@@ -291,9 +339,10 @@ function renderOnlineGame(
 
   if (state.players) {
     state.players.forEach((player: any, id: string) => {
-      const isGhost = player.activePowerUp?.type === "ghost_step";
-      const isFrozen = player.activePowerUp?.type === "freeze_pulse";
-      const hasBubble = player.activePowerUp?.type === "safe_bubble";
+      const activePowerUpType = POWER_UP_INDEX_TO_TYPE[player.activePowerUpType];
+      const isGhost = activePowerUpType === "ghost_step";
+      const isFrozen = activePowerUpType === "freeze_pulse";
+      const hasBubble = activePowerUpType === "safe_bubble";
 
       if (isGhost) ctx.globalAlpha = 0.25;
 

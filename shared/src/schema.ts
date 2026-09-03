@@ -103,6 +103,7 @@ export class TagRoomStateSchema extends Schema {
   @type({ map: PowerUpSpawnSchema }) spawns = new MapSchema<PowerUpSpawnSchema>();
   @type({ map: StickyPatchSchema }) stickyPatches = new MapSchema<StickyPatchSchema>();
   @type({ map: DecoySchema }) decoys = new MapSchema<DecoySchema>();
+  @type("string") hostId: string = "";
   @type("boolean") gameStarted: boolean = false;
   @type("number") roundTimeRemaining: number = 0;
   @type("number") roundLength: number = 120;
@@ -111,22 +112,4 @@ export class TagRoomStateSchema extends Schema {
   @type("boolean") powerUpsEnabled: boolean = true;
 }
 
-export const POWER_UP_TYPE_INDEX: Record<string, number> = {
-  speed_surge: 0,
-  freeze_pulse: 1,
-  ghost_step: 2,
-  blink_dash: 3,
-  mirror_decoy: 4,
-  safe_bubble: 5,
-  sticky_patch: 6,
-};
 
-export const POWER_UP_INDEX_TO_TYPE: string[] = [
-  "speed_surge",
-  "freeze_pulse",
-  "ghost_step",
-  "blink_dash",
-  "mirror_decoy",
-  "safe_bubble",
-  "sticky_patch",
-];

@@ -17,7 +17,7 @@ tag/
 └── package.json
 ```
 
-This is an **npm workspace monorepo**. `shared` is built first and imported by both `client` and `server` so the tag/power-up logic is never duplicated.
+This is an **bun workspace monorepo**. `shared` is built first and imported by both `client` and `server` so the tag/power-up logic is never duplicated.
 
 - `client` → deploy to a static host (Vercel, Netlify, Cloudflare Pages).
 - `server` → deploy to a long-running Node host with persistent WebSockets (Fly.io, Railway, Render) — **not** serverless/static.
@@ -25,7 +25,7 @@ This is an **npm workspace monorepo**. `shared` is built first and imported by b
 ## Prerequisites
 
 - **Node.js 20+** (uses ESM workspaces)
-- **npm 9+**
+- **bun 9+**
 
 ## Getting Started (Dev Environment)
 
@@ -34,7 +34,7 @@ This is an **npm workspace monorepo**. `shared` is built first and imported by b
 From the repo root:
 
 ```bash
-npm install
+bun install
 ```
 
 ### 2. Build the shared package
@@ -42,19 +42,19 @@ npm install
 `shared` must be compiled before the client/server can use it:
 
 ```bash
-npm run build --workspace=shared
+bun run build --workspace=shared
 ```
 
 Or run the full build (shared + client + server) at any time:
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### 3. Start the Colyseus server (for online mode)
 
 ```bash
-npm run dev:server
+bun run dev:server
 ```
 
 This runs the server in watch mode on **port 2567** (configurable via `--port` or the `PORT` env var). You should see the Colyseus banner and:
@@ -68,7 +68,7 @@ Chase Tag server listening on port 2567
 In a **second terminal**:
 
 ```bash
-npm run dev:client
+bun run dev:client
 ```
 
 Opens the Vite dev server at **http://localhost:3000**.
@@ -90,10 +90,10 @@ If unset, the client defaults to `ws://localhost:2567`, so local dev works out o
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev:client` | Start Vite dev server (port 3000) |
-| `npm run dev:server` | Start Colyseus server in watch mode (port 2567) |
-| `npm run build` | Build shared, then client, then server |
-| `npm run build --workspace=shared` | Rebuild the shared package only |
+| `bun run dev:client` | Start Vite dev server (port 3000) |
+| `bun run dev:server` | Start Colyseus server in watch mode (port 2567) |
+| `bun run build` | Build shared, then client, then server |
+| `bun run build --workspace=shared` | Rebuild the shared package only |
 
 ## Gameplay / Controls
 
@@ -119,5 +119,5 @@ Pickups spawn on the map (a random rotation of 2–3 at a time). Any player — 
 
 ## Deployment
 
-- **Client:** build (`npm run build --workspace=client`), then host `client/dist` statically. Set `VITE_COLYSEUS_URL` to your deployed server's WebSocket URL.
+- **Client:** build (`bun run build --workspace=client`), then host `client/dist` statically. Set `VITE_COLYSEUS_URL` to your deployed server's WebSocket URL.
 - **Server:** build and run `node dist/index.js`. If you later run multiple instances, add Redis to sync rooms across instances (not needed at launch).

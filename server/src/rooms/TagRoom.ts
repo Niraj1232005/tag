@@ -75,6 +75,8 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   private powerUpInterval: ReturnType<typeof setInterval> | null = null;
   private lastTick = Date.now();
   private playerInputs: Map<string, InputState> = new Map();
+  private hostId: string | null = null;
+  private hostKey: string | null = null;
   private config: RoomConfig = {
     roundLength: 120,
     mapName: "arena",
@@ -82,8 +84,9 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   };
   private map: GameMap = MAPS.arena;
 
-  onCreate(options: { config?: RoomConfig; hostId: string }) {
+  onCreate(options: { config?: RoomConfig; hostKey?: string }) {
     this.config = options.config ?? this.config;
+    this.hostKey = options.hostKey ?? null;
     this.map = MAPS[this.config.mapName] ?? MAPS.arena;
     this.maxClients = 13;
 
@@ -101,7 +104,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     });
 
     this.onMessage("startGame", (client: Client) => {
-      if (client.sessionId !== options.hostId) return;
+      if (client.sessionId !== this.hostId) return;
       if (this.s.gameStarted) return;
       this.startGame();
     });
@@ -114,7 +117,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     });
 
     this.onMessage("config", (client: Client, data: Partial<RoomConfig>) => {
-      if (client.sessionId !== options.hostId) return;
+      if (client.sessionId !== this.hostId) return;
       if (this.s.gameStarted) return;
       if (data.roundLength) {
         this.config.roundLength = data.roundLength;
@@ -133,8 +136,12 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     });
   }
 
-  onJoin(client: Client, options: { name?: string }) {
+  onJoin(client: Client, options: { name?: string; hostKey?: string }) {
     const playerIndex = this.s.players.size;
+    if (!this.hostId || (this.hostKey && options.hostKey === this.hostKey)) {
+      this.hostId = client.sessionId;
+      this.s.hostId = client.sessionId;
+    }
     const spawn = this.map.spawnPoints[playerIndex % this.map.spawnPoints.length];
 
     const player = new PlayerSchema();
@@ -165,6 +172,11 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     if (this.s.players.size === 0) {
       this.disconnect();
       return;
+    }
+
+    if (client.sessionId === this.hostId) {
+      this.hostId = playerList(this.s)[0]?.id ?? null;
+      this.s.hostId = this.hostId ?? "";
     }
 
     const itPlayer = playerList(this.s).find(p => p.isIt);
@@ -328,6 +340,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       const input = this.playerInputs.get(sessionId);
       if (input?.usePowerUp && player.heldPowerUp >= 0 && player.powerUpCooldown <= 0) {
         const type = POWER_UP_INDEX_TO_TYPE[player.heldPowerUp];
+        if (!type) return;
         this.activatePowerUp(player, type);
         const config = POWER_UP_CONFIGS[type as PowerUpType];
         player.powerUpCooldown = config.cooldownMs;
@@ -364,9 +377,9 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     }
   }
 
-  activatePowerUp(player: PlayerSchema, type: string) {
+  activatePowerUp(player: PlayerSchema, type: PowerUpType) {
     const typeIdx = POWER_UP_TYPE_INDEX[type];
-    const config = POWER_UP_CONFIGS[type as PowerUpType];
+    const config = POWER_UP_CONFIGS[type];
 
     switch (type) {
       case "speed_surge":
@@ -443,7 +456,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     if (available.length === 0) return;
 
     const slot = available[Math.floor(Math.random() * available.length)];
-    const typeKeys = Object.keys(POWER_UP_TYPE_INDEX);
+    const typeKeys = Object.keys(POWER_UP_TYPE_INDEX) as PowerUpType[];
     const type = typeKeys[Math.floor(Math.random() * typeKeys.length)];
 
     const spawn = new PowerUpSpawnSchema();
