@@ -19,7 +19,6 @@ import {
   SPEED_SURGE_MULTIPLIER,
   PLAYER_SIZE,
   TAG_RADIUS,
-  TAG_COOLDOWN_MS,
   POWER_UP_PICKUP_RADIUS,
   FREEZE_RADIUS,
   BINK_DASH_DISTANCE,
@@ -191,7 +190,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   private powerUpInterval: ReturnType<typeof setInterval> | null = null;
   private lastTick = Date.now();
   private playerInputs: Map<string, InputState> = new Map();
-  private tagCooldownMs = 0;
+  private tagLocked = false;
   private hostId: string | null = null;
   private hostKey: string | null = null;
   private config: RoomConfig = {
@@ -269,6 +268,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     if (!this.hostId || (this.hostKey && options.hostKey === this.hostKey)) {
       this.hostId = client.sessionId;
       this.s.hostId = client.sessionId;
+      this.broadcast("hostUpdate", { hostId: client.sessionId });
     }
     const spawn = this.map.spawnPoints[playerIndex % this.map.spawnPoints.length];
 
@@ -307,6 +307,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     if (client.sessionId === this.hostId) {
       this.hostId = playerList(this.s)[0]?.id ?? null;
       this.s.hostId = this.hostId ?? "";
+      this.broadcast("hostUpdate", { hostId: this.hostId ?? "" });
     }
 
     const itPlayer = playerList(this.s).find(p => p.isIt);
@@ -351,7 +352,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   startGame() {
     this.s.gameStarted = true;
     this.s.roundTimeRemaining = this.config.roundLength;
-    this.tagCooldownMs = 0;
+    this.tagLocked = false;
 
     const initialItId = this.hostId ?? playerList(this.s)[0]?.id ?? "";
     let idx = 0;
@@ -396,9 +397,6 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     this.lastTick = now;
 
     this.s.roundTimeRemaining -= dt / 1000;
-    if (this.tagCooldownMs > 0) {
-      this.tagCooldownMs = Math.max(0, this.tagCooldownMs - dt);
-    }
     if (this.s.roundTimeRemaining <= 0) {
       this.s.roundTimeRemaining = 0;
       this.endRound();
@@ -520,29 +518,49 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     });
 
     const itPlayer = playerList(this.s).find(p => p.isIt);
-    if (itPlayer && this.tagCooldownMs <= 0) {
-      for (const other of this.s.players.values()) {
-        if (other.id === itPlayer.id) continue;
-        if (!other.alive) continue;
+    if (itPlayer) {
+      const itCx = itPlayer.x + PLAYER_SIZE;
+      const itCy = itPlayer.y + PLAYER_SIZE;
 
-        if (dist(itPlayer.x + PLAYER_SIZE, itPlayer.y + PLAYER_SIZE, other.x + PLAYER_SIZE, other.y + PLAYER_SIZE) < TAG_RADIUS) {
-          if (other.activePowerUpType === POWER_UP_TYPE_INDEX.safe_bubble) {
-            other.activePowerUpType = -1;
-            other.activePowerUpRemaining = 0;
-            other.activePowerUpDuration = 0;
-            continue;
+      if (this.tagLocked) {
+        let stillOverlapping = false;
+        for (const other of this.s.players.values()) {
+          if (other.id === itPlayer.id) continue;
+          if (!other.alive) continue;
+          if (dist(itCx, itCy, other.x + PLAYER_SIZE, other.y + PLAYER_SIZE) < TAG_RADIUS) {
+            stillOverlapping = true;
+            break;
           }
+        }
+        if (!stillOverlapping) {
+          this.tagLocked = false;
+        }
+      }
 
-          itPlayer.isIt = false;
-          other.isIt = true;
-          itPlayer.score += 1;
-          this.tagCooldownMs = TAG_COOLDOWN_MS;
+      if (!this.tagLocked) {
+        for (const other of this.s.players.values()) {
+          if (other.id === itPlayer.id) continue;
+          if (!other.alive) continue;
 
-          this.broadcast("tag", {
-            taggerId: itPlayer.id,
-            taggedId: other.id,
-          });
-          break;
+          if (dist(itCx, itCy, other.x + PLAYER_SIZE, other.y + PLAYER_SIZE) < TAG_RADIUS) {
+            if (other.activePowerUpType === POWER_UP_TYPE_INDEX.safe_bubble) {
+              other.activePowerUpType = -1;
+              other.activePowerUpRemaining = 0;
+              other.activePowerUpDuration = 0;
+              continue;
+            }
+
+            itPlayer.isIt = false;
+            other.isIt = true;
+            itPlayer.score += 1;
+            this.tagLocked = true;
+
+            this.broadcast("tag", {
+              taggerId: itPlayer.id,
+              taggedId: other.id,
+            });
+            break;
+          }
         }
       }
     }
@@ -644,7 +662,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
 
   endRound() {
     this.s.gameStarted = false;
-    this.tagCooldownMs = 0;
+    this.tagLocked = false;
 
     if (this.tickInterval) {
       clearInterval(this.tickInterval);

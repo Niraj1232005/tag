@@ -140,6 +140,10 @@ export default function OnlineGame() {
         };
 
         room.onStateChange(syncState);
+        room.onMessage("hostUpdate", (data: any) => {
+          if (data.hostId) setServerHostId(data.hostId);
+        });
+
         room.onMessage("lobbyState", (data: any) => {
           setPlayers((data.players ?? []).map(lobbyPlayerToState));
           setServerHostId(data.hostId ?? "");
@@ -174,7 +178,6 @@ export default function OnlineGame() {
     connect();
 
     return () => {
-      connectedRef.current = false;
       gameFrameRef.current = null;
       roomRef.current?.leave();
       clientRef.current = null;

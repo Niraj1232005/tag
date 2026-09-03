@@ -15,7 +15,6 @@ import {
   SPEED_SURGE_MULTIPLIER,
   PLAYER_SIZE,
   TAG_RADIUS,
-  TAG_COOLDOWN_MS,
   POWER_UP_PICKUP_RADIUS,
   FREEZE_RADIUS,
   BINK_DASH_DISTANCE,
@@ -35,7 +34,7 @@ export interface LocalGameState {
   running: boolean;
   ended: boolean;
   result: { loserId: string; loserName: string } | null;
-  tagCooldownMs: number;
+  tagLocked: boolean;
 }
 
 export interface LocalPlayerInput {
@@ -88,7 +87,7 @@ export function createLocalGame(
     running: false,
     ended: false,
     result: null,
-    tagCooldownMs: 0,
+    tagLocked: false,
   };
 }
 
@@ -195,10 +194,6 @@ export function updateLocalGame(
       loserName: itPlayer?.name ?? "Unknown",
     };
     return;
-  }
-
-  if (state.tagCooldownMs > 0) {
-    state.tagCooldownMs = Math.max(0, state.tagCooldownMs - dt);
   }
 
   // Update power-up timers
@@ -309,26 +304,41 @@ export function updateLocalGame(
 
   // Tag check
   const itPlayer = state.players.find(p => p.isIt);
-  if (itPlayer && state.tagCooldownMs <= 0) {
-    for (const other of state.players) {
-      if (other.id === itPlayer.id) continue;
-      if (!other.alive) continue;
-
-      const distance = dist(itPlayer, other);
-
-      if (distance < TAG_RADIUS) {
-        // Check safe bubble
-        if (other.activePowerUp?.type === "safe_bubble") {
-          other.activePowerUp = null;
-          continue;
+  if (itPlayer) {
+    if (state.tagLocked) {
+      let stillOverlapping = false;
+      for (const other of state.players) {
+        if (other.id === itPlayer.id) continue;
+        if (!other.alive) continue;
+        if (dist(itPlayer, other) < TAG_RADIUS) {
+          stillOverlapping = true;
+          break;
         }
+      }
+      if (!stillOverlapping) {
+        state.tagLocked = false;
+      }
+    }
 
-        // Tag! Swap roles, then give players time to separate.
-        itPlayer.isIt = false;
-        other.isIt = true;
-        itPlayer.score += 1;
-        state.tagCooldownMs = TAG_COOLDOWN_MS;
-        break;
+    if (!state.tagLocked) {
+      for (const other of state.players) {
+        if (other.id === itPlayer.id) continue;
+        if (!other.alive) continue;
+
+        if (dist(itPlayer, other) < TAG_RADIUS) {
+          // Check safe bubble
+          if (other.activePowerUp?.type === "safe_bubble") {
+            other.activePowerUp = null;
+            continue;
+          }
+
+          // Tag! Swap roles, then wait for separation before tagging again.
+          itPlayer.isIt = false;
+          other.isIt = true;
+          itPlayer.score += 1;
+          state.tagLocked = true;
+          break;
+        }
       }
     }
   }
