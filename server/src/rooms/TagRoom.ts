@@ -12,7 +12,10 @@ import {
   type RoomConfig,
   MAPS,
   PLAYER_COLORS,
-  PLAYER_BASE_SPEED,
+  PLAYER_MOVE_SPEED,
+  PLAYER_JUMP_SPEED,
+  GRAVITY,
+  MAX_FALL_SPEED,
   SPEED_SURGE_MULTIPLIER,
   PLAYER_SIZE,
   TAG_RADIUS,
@@ -50,6 +53,48 @@ function collidesWithObstacles(x: number, y: number, obstacles: any[]): boolean 
     }
   }
   return false;
+}
+
+function isGrounded(player: PlayerSchema, map: GameMap): boolean {
+  const playerH = PLAYER_SIZE * 2;
+  return player.y >= map.height - playerH - 0.5 || collidesWithObstacles(player.x, player.y + 2, map.obstacles);
+}
+
+function horizontallyOverlaps(x: number, obstacle: any): boolean {
+  const playerW = PLAYER_SIZE * 2;
+  return x + playerW > obstacle.x && x < obstacle.x + obstacle.w;
+}
+
+function moveVertically(player: PlayerSchema, newY: number, map: GameMap) {
+  const playerH = PLAYER_SIZE * 2;
+  const oldY = player.y;
+
+  if (player.vy >= 0) {
+    const oldBottom = oldY + playerH;
+    const newBottom = newY + playerH;
+    for (const o of map.obstacles) {
+      if (horizontallyOverlaps(player.x, o) && oldBottom <= o.y && newBottom >= o.y) {
+        player.y = o.y - playerH;
+        player.vy = 0;
+        return;
+      }
+    }
+  } else {
+    for (const o of map.obstacles) {
+      const obstacleBottom = o.y + o.h;
+      if (horizontallyOverlaps(player.x, o) && oldY >= obstacleBottom && newY <= obstacleBottom) {
+        player.y = obstacleBottom;
+        player.vy = 0;
+        return;
+      }
+    }
+  }
+
+  if (!collidesWithObstacles(player.x, newY, map.obstacles)) {
+    player.y = newY;
+  } else {
+    player.vy = 0;
+  }
 }
 
 interface InputState {
@@ -195,6 +240,8 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       const spawn = this.map.spawnPoints[idx % this.map.spawnPoints.length];
       player.x = spawn.x;
       player.y = spawn.y;
+      player.vx = 0;
+      player.vy = 0;
       player.isIt = idx === 0;
       player.alive = true;
       player.score = 0;
@@ -280,7 +327,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
 
       const isFrozen = player.activePowerUpType === POWER_UP_TYPE_INDEX.freeze_pulse;
 
-      let speed = PLAYER_BASE_SPEED;
+      let speed = PLAYER_MOVE_SPEED;
       if (player.activePowerUpType === POWER_UP_TYPE_INDEX.speed_surge) {
         speed *= SPEED_SURGE_MULTIPLIER;
       }
@@ -291,37 +338,36 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
         }
       });
 
-      let dx = 0, dy = 0;
+      const frameScale = dt / (1000 / 60);
+      let dx = 0;
       if (!isFrozen) {
-        if (input.up) dy -= 1;
-        if (input.down) dy += 1;
-        if (input.left) dx -= 1;
-        if (input.right) dx += 1;
-
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len > 0) {
-          dx = (dx / len) * speed;
-          dy = (dy / len) * speed;
-          player.facingX = dx / speed;
-          player.facingY = dy / speed;
+        if (input.left) dx -= speed * frameScale;
+        if (input.right) dx += speed * frameScale;
+        if (dx !== 0) {
+          player.facingX = Math.sign(dx);
+          player.facingY = 0;
+        }
+        if (input.up && isGrounded(player, this.map)) {
+          player.vy = -PLAYER_JUMP_SPEED;
         }
       }
 
       player.vx = dx;
-      player.vy = dy;
+      player.vy = Math.min(MAX_FALL_SPEED, player.vy + GRAVITY * frameScale);
 
-      const newX = player.x + dx;
-      const newY = player.y + dy;
-
+      const newX = player.x + player.vx;
       if (!collidesWithObstacles(newX, player.y, this.map.obstacles)) {
         player.x = newX;
+      } else {
+        player.vx = 0;
       }
-      if (!collidesWithObstacles(player.x, newY, this.map.obstacles)) {
-        player.y = newY;
-      }
+
+      const newY = player.y + player.vy * frameScale;
+      moveVertically(player, newY, this.map);
 
       player.x = Math.max(0, Math.min(this.map.width - PLAYER_SIZE * 2, player.x));
       player.y = Math.max(0, Math.min(this.map.height - PLAYER_SIZE * 2, player.y));
+      if (player.y >= this.map.height - PLAYER_SIZE * 2) player.vy = 0;
     });
 
     this.s.players.forEach((player) => {

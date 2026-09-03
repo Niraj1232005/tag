@@ -56,8 +56,8 @@ export function useLocalInputs(numPlayers: number) {
 }
 
 export const KEY_BINDINGS = [
-  { label: "WASD + E", keys: "W A S D (move) + E (power-up)" },
-  { label: "Arrows + Enter", keys: "Arrow Keys (move) + Enter (power-up)" },
-  { label: "TFGH + R", keys: "T F G H (move) + R (power-up)" },
-  { label: "Numpad + 0", keys: "Numpad 8/4/6/5 (move) + 0 (power-up)" },
+  { label: "WASD + E", keys: "A/D move, W jump, E power-up" },
+  { label: "Arrows + Enter", keys: "Left/Right move, Up jump, Enter power-up" },
+  { label: "TFGH + R", keys: "F/H move, T jump, R power-up" },
+  { label: "Numpad + 0", keys: "4/6 move, 8 jump, 0 power-up" },
 ];

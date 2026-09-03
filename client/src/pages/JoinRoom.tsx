@@ -26,7 +26,7 @@ export default function JoinRoom() {
           <label style={styles.label}>Room ID</label>
           <input
             value={roomCode}
-            onChange={e => setRoomCode(e.target.value.toUpperCase())}
+            onChange={e => setRoomCode(e.target.value.trim())}
             placeholder="Enter room ID"
             style={{ ...styles.input, textAlign: "center", letterSpacing: "0.2em", fontSize: "1.3rem" }}
             maxLength={32}

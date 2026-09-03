@@ -1,200 +1,164 @@
-import type { GameMap, Obstacle, Vec2 } from "./types.js";
+import type { GameMap, Obstacle } from "./types.js";
 
 const FIELD_W = 1600;
 const FIELD_H = 900;
+const PLATFORM_H = 22;
+const PLAYER_H = 32;
 
-const outerWalls: Obstacle[] = [
-  { x: 0, y: 0, w: FIELD_W, h: 16 },
-  { x: 0, y: FIELD_H - 16, w: FIELD_W, h: 16 },
-  { x: 0, y: 0, w: 16, h: FIELD_H },
-  { x: FIELD_W - 16, y: 0, w: 16, h: FIELD_H },
-];
-
-function centerBox(): Obstacle {
-  const w = 200, h = 140;
-  return { x: (FIELD_W - w) / 2, y: (FIELD_H - h) / 2, w, h };
+function platform(x: number, y: number, w: number): Obstacle {
+  return { x, y, w, h: PLATFORM_H };
 }
 
-function pillars(): Obstacle[] {
-  const size = 60;
-  const positions: Vec2[] = [
-    { x: 300, y: 250 },
-    { x: FIELD_W - 300 - size, y: 250 },
-    { x: 300, y: FIELD_H - 250 - size },
-    { x: FIELD_W - 300 - size, y: FIELD_H - 250 - size },
-  ];
-  return positions.map(p => ({ x: p.x, y: p.y, w: size, h: size }));
+function onPlatform(x: number, platformY: number) {
+  return { x, y: platformY - PLAYER_H };
 }
 
-function walls(): Obstacle[] {
+function abovePlatform(x: number, platformY: number) {
+  return { x, y: platformY - 36 };
+}
+
+function sideWalls(width: number, height: number): Obstacle[] {
   return [
-    { x: 200, y: 100, w: 16, h: 200 },
-    { x: FIELD_W - 200 - 16, y: 100, w: 16, h: 200 },
-    { x: 200, y: FIELD_H - 100 - 200, w: 16, h: 200 },
-    { x: FIELD_W - 200 - 16, y: FIELD_H - 100 - 200, w: 16, h: 200 },
-    { x: 400, y: 400, w: 160, h: 16 },
-    { x: FIELD_W - 400 - 160, y: 400, w: 160, h: 16 },
-    { x: 400, y: FIELD_H - 400 - 16, w: 160, h: 16 },
-    { x: FIELD_W - 400 - 160, y: FIELD_H - 400 - 16, w: 160, h: 16 },
+    { x: -24, y: 0, w: 24, h: height },
+    { x: width, y: 0, w: 24, h: height },
   ];
 }
 
-export const ARENA_MAP: GameMap = {
-  name: "Arena",
+export const SKYLINE_STAGE: GameMap = {
+  name: "Skyline Stage",
   width: FIELD_W,
   height: FIELD_H,
-  obstacles: [...outerWalls, centerBox(), ...pillars(), ...walls()],
+  obstacles: [
+    ...sideWalls(FIELD_W, FIELD_H),
+    platform(0, 820, 250),
+    platform(270, 820, 260),
+    platform(770, 790, 380),
+    platform(1320, 800, 280),
+    platform(230, 680, 880),
+    platform(1350, 665, 250),
+    platform(0, 555, 240),
+    platform(350, 540, 650),
+    platform(980, 410, 600),
+    platform(280, 390, 380),
+    platform(640, 265, 380),
+    platform(1340, 280, 260),
+  ],
   spawnPoints: [
-    { x: 200, y: 200 },
-    { x: FIELD_W - 200, y: 200 },
-    { x: 200, y: FIELD_H - 200 },
-    { x: FIELD_W - 200, y: FIELD_H - 200 },
-    { x: FIELD_W / 2, y: 150 },
-    { x: FIELD_W / 2, y: FIELD_H - 150 },
-    { x: 150, y: FIELD_H / 2 },
-    { x: FIELD_W - 150, y: FIELD_H / 2 },
-    { x: FIELD_W / 2 - 100, y: FIELD_H / 2 },
-    { x: FIELD_W / 2 + 100, y: FIELD_H / 2 },
-    { x: FIELD_W / 4, y: FIELD_H / 4 },
-    { x: (FIELD_W * 3) / 4, y: FIELD_H / 4 },
-    { x: FIELD_W / 4, y: (FIELD_H * 3) / 4 },
+    onPlatform(620, 540),
+    onPlatform(700, 540),
+    onPlatform(780, 540),
+    onPlatform(860, 540),
+    onPlatform(460, 680),
+    onPlatform(980, 680),
+    onPlatform(90, 820),
+    onPlatform(1420, 800),
+    onPlatform(360, 390),
+    onPlatform(1460, 280),
+    onPlatform(760, 265),
+    onPlatform(1060, 410),
+    onPlatform(900, 790),
   ],
   powerUpSpawns: [
-    { x: FIELD_W / 2, y: 200 },
-    { x: FIELD_W / 2, y: FIELD_H - 200 },
-    { x: 200, y: FIELD_H / 2 },
-    { x: FIELD_W - 200, y: FIELD_H / 2 },
-    { x: FIELD_W / 2 - 200, y: FIELD_H / 2 },
-    { x: FIELD_W / 2 + 200, y: FIELD_H / 2 },
-    { x: FIELD_W / 4, y: FIELD_H / 2 },
-    { x: (FIELD_W * 3) / 4, y: FIELD_H / 2 },
+    abovePlatform(460, 390),
+    abovePlatform(790, 265),
+    abovePlatform(1420, 280),
+    abovePlatform(1020, 410),
+    abovePlatform(450, 680),
+    abovePlatform(1030, 680),
+    abovePlatform(180, 820),
+    abovePlatform(1450, 800),
   ],
 };
 
-const SMALL_W = 1000;
-const SMALL_H = 600;
-
-const smallOuterWalls: Obstacle[] = [
-  { x: 0, y: 0, w: SMALL_W, h: 12 },
-  { x: 0, y: SMALL_H - 12, w: SMALL_W, h: 12 },
-  { x: 0, y: 0, w: 12, h: SMALL_H },
-  { x: SMALL_W - 12, y: 0, w: 12, h: SMALL_H },
-];
-
-function smallCenterBox(): Obstacle {
-  const w = 140, h = 100;
-  return { x: (SMALL_W - w) / 2, y: (SMALL_H - h) / 2, w, h };
-}
-
-function smallPillars(): Obstacle[] {
-  const size = 50;
-  const positions: Vec2[] = [
-    { x: 200, y: 150 },
-    { x: SMALL_W - 200 - size, y: 150 },
-    { x: 200, y: SMALL_H - 150 - size },
-    { x: SMALL_W - 200 - size, y: SMALL_H - 150 - size },
-  ];
-  return positions.map(p => ({ x: p.x, y: p.y, w: size, h: size }));
-}
-
-function smallWalls(): Obstacle[] {
-  return [
-    { x: 150, y: 80, w: 12, h: 160 },
-    { x: SMALL_W - 150 - 12, y: 80, w: 12, h: 160 },
-    { x: 150, y: SMALL_H - 80 - 160, w: 12, h: 160 },
-    { x: SMALL_W - 150 - 12, y: SMALL_H - 80 - 160, w: 12, h: 160 },
-  ];
-}
-
-export const SMALL_ARENA: GameMap = {
-  name: "Small Arena",
-  width: SMALL_W,
-  height: SMALL_H,
-  obstacles: [...smallOuterWalls, smallCenterBox(), ...smallPillars(), ...smallWalls()],
+export const COMPACT_STAGE: GameMap = {
+  name: "Compact Stage",
+  width: 1100,
+  height: 700,
+  obstacles: [
+    ...sideWalls(1100, 700),
+    platform(0, 635, 260),
+    platform(330, 635, 420),
+    platform(830, 635, 270),
+    platform(150, 520, 360),
+    platform(620, 500, 380),
+    platform(0, 400, 210),
+    platform(360, 380, 390),
+    platform(820, 300, 280),
+    platform(260, 250, 300),
+  ],
   spawnPoints: [
-    { x: 120, y: 120 },
-    { x: SMALL_W - 120, y: 120 },
-    { x: 120, y: SMALL_H - 120 },
-    { x: SMALL_W - 120, y: SMALL_H - 120 },
-    { x: SMALL_W / 2, y: 100 },
-    { x: SMALL_W / 2, y: SMALL_H - 100 },
-    { x: 100, y: SMALL_H / 2 },
-    { x: SMALL_W - 100, y: SMALL_H / 2 },
-    { x: SMALL_W / 2 - 80, y: SMALL_H / 2 },
-    { x: SMALL_W / 2 + 80, y: SMALL_H / 2 },
-    { x: SMALL_W / 3, y: SMALL_H / 3 },
-    { x: (SMALL_W * 2) / 3, y: SMALL_H / 3 },
-    { x: SMALL_W / 3, y: (SMALL_H * 2) / 3 },
+    onPlatform(400, 635),
+    onPlatform(470, 635),
+    onPlatform(540, 635),
+    onPlatform(610, 635),
+    onPlatform(230, 520),
+    onPlatform(760, 500),
+    onPlatform(70, 400),
+    onPlatform(900, 300),
+    onPlatform(350, 250),
+    onPlatform(670, 380),
+    onPlatform(80, 635),
+    onPlatform(980, 635),
+    onPlatform(900, 635),
   ],
   powerUpSpawns: [
-    { x: SMALL_W / 2, y: 120 },
-    { x: SMALL_W / 2, y: SMALL_H - 120 },
-    { x: 120, y: SMALL_H / 2 },
-    { x: SMALL_W - 120, y: SMALL_H / 2 },
-    { x: SMALL_W / 2 - 150, y: SMALL_H / 2 },
-    { x: SMALL_W / 2 + 150, y: SMALL_H / 2 },
+    abovePlatform(340, 250),
+    abovePlatform(680, 380),
+    abovePlatform(870, 300),
+    abovePlatform(230, 520),
+    abovePlatform(700, 500),
+    abovePlatform(550, 635),
   ],
 };
 
-const OPEN_W = 1200;
-const OPEN_H = 800;
-
-const openOuterWalls: Obstacle[] = [
-  { x: 0, y: 0, w: OPEN_W, h: 14 },
-  { x: 0, y: OPEN_H - 14, w: OPEN_W, h: 14 },
-  { x: 0, y: 0, w: 14, h: OPEN_H },
-  { x: OPEN_W - 14, y: 0, w: 14, h: OPEN_H },
-];
-
-function openScattered(): Obstacle[] {
-  return [
-    { x: 200, y: 200, w: 80, h: 40 },
-    { x: OPEN_W - 280, y: 200, w: 80, h: 40 },
-    { x: 200, y: OPEN_H - 240, w: 80, h: 40 },
-    { x: OPEN_W - 280, y: OPEN_H - 240, w: 80, h: 40 },
-    { x: OPEN_W / 2 - 40, y: 250, w: 80, h: 30 },
-    { x: OPEN_W / 2 - 40, y: OPEN_H - 280, w: 80, h: 30 },
-  ];
-}
-
-export const OPEN_FIELD: GameMap = {
-  name: "Open Field",
-  width: OPEN_W,
-  height: OPEN_H,
-  obstacles: [...openOuterWalls, ...openScattered()],
+export const OPEN_STAGE: GameMap = {
+  name: "Open Stage",
+  width: 1300,
+  height: 760,
+  obstacles: [
+    ...sideWalls(1300, 760),
+    platform(0, 700, 420),
+    platform(520, 700, 780),
+    platform(160, 585, 360),
+    platform(650, 560, 460),
+    platform(0, 455, 280),
+    platform(420, 435, 350),
+    platform(930, 335, 370),
+    platform(360, 300, 580),
+  ],
   spawnPoints: [
-    { x: 150, y: 150 },
-    { x: OPEN_W - 150, y: 150 },
-    { x: 150, y: OPEN_H - 150 },
-    { x: OPEN_W - 150, y: OPEN_H - 150 },
-    { x: OPEN_W / 2, y: 120 },
-    { x: OPEN_W / 2, y: OPEN_H - 120 },
-    { x: 120, y: OPEN_H / 2 },
-    { x: OPEN_W - 120, y: OPEN_H / 2 },
-    { x: OPEN_W / 2 - 100, y: OPEN_H / 2 },
-    { x: OPEN_W / 2 + 100, y: OPEN_H / 2 },
-    { x: OPEN_W / 4, y: OPEN_H / 4 },
-    { x: (OPEN_W * 3) / 4, y: OPEN_H / 4 },
-    { x: OPEN_W / 4, y: (OPEN_H * 3) / 4 },
+    onPlatform(570, 700),
+    onPlatform(650, 700),
+    onPlatform(730, 700),
+    onPlatform(810, 700),
+    onPlatform(260, 585),
+    onPlatform(760, 560),
+    onPlatform(110, 455),
+    onPlatform(1040, 335),
+    onPlatform(500, 300),
+    onPlatform(820, 300),
+    onPlatform(100, 700),
+    onPlatform(1150, 700),
+    onPlatform(680, 435),
   ],
   powerUpSpawns: [
-    { x: OPEN_W / 2, y: 150 },
-    { x: OPEN_W / 2, y: OPEN_H - 150 },
-    { x: 150, y: OPEN_H / 2 },
-    { x: OPEN_W - 150, y: OPEN_H / 2 },
-    { x: OPEN_W / 2 - 200, y: OPEN_H / 2 },
-    { x: OPEN_W / 2 + 200, y: OPEN_H / 2 },
+    abovePlatform(520, 300),
+    abovePlatform(840, 300),
+    abovePlatform(690, 435),
+    abovePlatform(1040, 335),
+    abovePlatform(280, 585),
+    abovePlatform(760, 560),
   ],
 };
 
 export const MAPS: Record<string, GameMap> = {
-  arena: ARENA_MAP,
-  small_arena: SMALL_ARENA,
-  open_field: OPEN_FIELD,
+  arena: SKYLINE_STAGE,
+  small_arena: COMPACT_STAGE,
+  open_field: OPEN_STAGE,
 };
 
 export const MAP_NAMES: Record<string, string> = {
-  arena: "Arena",
-  small_arena: "Small Arena",
-  open_field: "Open Field",
+  arena: "Skyline Stage",
+  small_arena: "Compact Stage",
+  open_field: "Open Stage",
 };

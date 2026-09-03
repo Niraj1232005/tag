@@ -294,24 +294,10 @@ function renderOnlineGame(
   ctx.save();
   ctx.translate(offsetX, offsetY);
 
-  ctx.fillStyle = "#1a1a2e";
-  ctx.fillRect(0, 0, map.width, map.height);
+  renderOnlineStageBackground(ctx, map);
 
-  ctx.strokeStyle = "#16213e";
-  ctx.lineWidth = 1;
-  for (let x = 0; x < map.width; x += 40) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, map.height); ctx.stroke();
-  }
-  for (let y = 0; y < map.height; y += 40) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(map.width, y); ctx.stroke();
-  }
-
-  ctx.fillStyle = "#2d2d5e";
-  ctx.strokeStyle = "#4a4a8a";
-  ctx.lineWidth = 2;
   for (const o of map.obstacles) {
-    ctx.fillRect(o.x, o.y, o.w, o.h);
-    ctx.strokeRect(o.x, o.y, o.w, o.h);
+    renderOnlinePlatform(ctx, o.x, o.y, o.w, o.h);
   }
 
   if (state.stickyPatches) {
@@ -380,23 +366,82 @@ function drawOnlinePlayer(
   const cx = x + PLAYER_SIZE;
   const cy = y + PLAYER_SIZE;
 
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.fillStyle = "rgba(0,0,0,0.24)";
   ctx.beginPath();
-  ctx.ellipse(cx, cy + PLAYER_SIZE, PLAYER_SIZE, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, y + PLAYER_SIZE * 2 + 3, PLAYER_SIZE * 0.9, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = isFrozen ? "#6699CC" : color;
-  ctx.beginPath(); ctx.arc(cx, cy, PLAYER_SIZE, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = isIt ? "#FF0000" : "#FFFFFF";
+  roundOnlineRect(ctx, x + 3, y + 5, PLAYER_SIZE * 2 - 6, PLAYER_SIZE * 2 - 3, 8);
+  ctx.fill();
+
+  ctx.fillStyle = "#102033";
+  roundOnlineRect(ctx, x + 7, y + 8, PLAYER_SIZE * 2 - 14, PLAYER_SIZE + 7, 5);
+  ctx.fill();
+
+  ctx.strokeStyle = isIt ? "#FF2D2D" : "#FFFFFF";
   ctx.lineWidth = isIt ? 3 : 2;
+  roundOnlineRect(ctx, x + 3, y + 5, PLAYER_SIZE * 2 - 6, PLAYER_SIZE * 2 - 3, 8);
   ctx.stroke();
 
-  ctx.fillStyle = "#fff";
-  ctx.beginPath(); ctx.arc(cx - 5, cy - 3, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + 5, cy - 3, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#000";
-  ctx.beginPath(); ctx.arc(cx - 5, cy - 3, 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + 5, cy - 3, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.beginPath(); ctx.arc(cx - 5, cy - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 5, cy - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#111827";
+  ctx.beginPath(); ctx.arc(cx - 5, cy - 2, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 5, cy - 2, 1.2, 0, Math.PI * 2); ctx.fill();
+}
+
+function renderOnlineStageBackground(ctx: CanvasRenderingContext2D, map: GameMap) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, map.height);
+  gradient.addColorStop(0, "#43a5f5");
+  gradient.addColorStop(1, "#55d3e6");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, map.width, map.height);
+
+  ctx.fillStyle = "rgba(44, 107, 190, 0.22)";
+  ctx.beginPath();
+  ctx.ellipse(map.width * 0.78, map.height * 0.62, map.width * 0.28, 70, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(map.width * 0.36, map.height * 0.7, map.width * 0.32, 60, 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(50, 107, 200, 0.28)";
+  for (let x = -80; x < map.width; x += 260) {
+    ctx.fillRect(x + 90, map.height * 0.42, 170, map.height * 0.28);
+    ctx.fillRect(x + 125, map.height * 0.38, 100, map.height * 0.06);
+  }
+}
+
+function renderOnlinePlatform(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  ctx.fillStyle = "#2ee870";
+  ctx.fillRect(x, y, w, 9);
+  ctx.fillStyle = "#ff3f8e";
+  ctx.fillRect(x, y + 9, w, h - 9);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+  ctx.fillRect(x, y, w, 2);
+
+  ctx.strokeStyle = "rgba(24, 157, 75, 0.75)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let px = x + 8; px < x + w; px += 14) {
+    ctx.lineTo(px, y + 11 + ((px / 14) % 2) * 4);
+  }
+  ctx.stroke();
+}
+
+function roundOnlineRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
 function renderOnlineHUD(ctx: CanvasRenderingContext2D, state: any, canvasW: number) {

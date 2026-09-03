@@ -53,63 +53,113 @@ export interface IPlayerSchema {
 }
 
 export class PlayerSchema extends Schema {
-  @type("string") id: string = "";
-  @type("string") name: string = "";
-  @type("number") x: number = 0;
-  @type("number") y: number = 0;
-  @type("number") vx: number = 0;
-  @type("number") vy: number = 0;
-  @type("boolean") isIt: boolean = false;
-  @type("boolean") alive: boolean = true;
-  @type("number") facingX: number = 1;
-  @type("number") facingY: number = 0;
-  @type("string") color: string = "#FFFFFF";
-  @type("number") score: number = 0;
-  @type("boolean") ready: boolean = false;
-  @type("number") activePowerUpType: number = -1;
-  @type("number") activePowerUpRemaining: number = 0;
-  @type("number") activePowerUpDuration: number = 0;
-  @type("number") powerUpCooldown: number = 0;
-  @type("number") heldPowerUp: number = -1;
+  id: string = "";
+  name: string = "";
+  x: number = 0;
+  y: number = 0;
+  vx: number = 0;
+  vy: number = 0;
+  isIt: boolean = false;
+  alive: boolean = true;
+  facingX: number = 1;
+  facingY: number = 0;
+  color: string = "#FFFFFF";
+  score: number = 0;
+  ready: boolean = false;
+  activePowerUpType: number = -1;
+  activePowerUpRemaining: number = 0;
+  activePowerUpDuration: number = 0;
+  powerUpCooldown: number = 0;
+  heldPowerUp: number = -1;
 }
+
+type("string")(PlayerSchema.prototype, "id");
+type("string")(PlayerSchema.prototype, "name");
+type("number")(PlayerSchema.prototype, "x");
+type("number")(PlayerSchema.prototype, "y");
+type("number")(PlayerSchema.prototype, "vx");
+type("number")(PlayerSchema.prototype, "vy");
+type("boolean")(PlayerSchema.prototype, "isIt");
+type("boolean")(PlayerSchema.prototype, "alive");
+type("number")(PlayerSchema.prototype, "facingX");
+type("number")(PlayerSchema.prototype, "facingY");
+type("string")(PlayerSchema.prototype, "color");
+type("number")(PlayerSchema.prototype, "score");
+type("boolean")(PlayerSchema.prototype, "ready");
+type("number")(PlayerSchema.prototype, "activePowerUpType");
+type("number")(PlayerSchema.prototype, "activePowerUpRemaining");
+type("number")(PlayerSchema.prototype, "activePowerUpDuration");
+type("number")(PlayerSchema.prototype, "powerUpCooldown");
+type("number")(PlayerSchema.prototype, "heldPowerUp");
 
 export class PowerUpSpawnSchema extends Schema {
-  @type("string") id: string = "";
-  @type("number") type: number = 0;
-  @type("number") x: number = 0;
-  @type("number") y: number = 0;
-  @type("number") respawnTimer: number = 0;
+  id: string = "";
+  type: number = 0;
+  x: number = 0;
+  y: number = 0;
+  respawnTimer: number = 0;
 }
+
+type("string")(PowerUpSpawnSchema.prototype, "id");
+type("number")(PowerUpSpawnSchema.prototype, "type");
+type("number")(PowerUpSpawnSchema.prototype, "x");
+type("number")(PowerUpSpawnSchema.prototype, "y");
+type("number")(PowerUpSpawnSchema.prototype, "respawnTimer");
 
 export class StickyPatchSchema extends Schema {
-  @type("string") id: string = "";
-  @type("number") x: number = 0;
-  @type("number") y: number = 0;
-  @type("number") remainingMs: number = 0;
+  id: string = "";
+  x: number = 0;
+  y: number = 0;
+  remainingMs: number = 0;
 }
+
+type("string")(StickyPatchSchema.prototype, "id");
+type("number")(StickyPatchSchema.prototype, "x");
+type("number")(StickyPatchSchema.prototype, "y");
+type("number")(StickyPatchSchema.prototype, "remainingMs");
 
 export class DecoySchema extends Schema {
-  @type("string") id: string = "";
-  @type("string") ownerId: string = "";
-  @type("number") x: number = 0;
-  @type("number") y: number = 0;
-  @type("number") vx: number = 0;
-  @type("number") vy: number = 0;
-  @type("number") remainingMs: number = 0;
+  id: string = "";
+  ownerId: string = "";
+  x: number = 0;
+  y: number = 0;
+  vx: number = 0;
+  vy: number = 0;
+  remainingMs: number = 0;
 }
 
+type("string")(DecoySchema.prototype, "id");
+type("string")(DecoySchema.prototype, "ownerId");
+type("number")(DecoySchema.prototype, "x");
+type("number")(DecoySchema.prototype, "y");
+type("number")(DecoySchema.prototype, "vx");
+type("number")(DecoySchema.prototype, "vy");
+type("number")(DecoySchema.prototype, "remainingMs");
+
 export class TagRoomStateSchema extends Schema {
-  @type({ map: PlayerSchema }) players = new MapSchema<PlayerSchema>();
-  @type({ map: PowerUpSpawnSchema }) spawns = new MapSchema<PowerUpSpawnSchema>();
-  @type({ map: StickyPatchSchema }) stickyPatches = new MapSchema<StickyPatchSchema>();
-  @type({ map: DecoySchema }) decoys = new MapSchema<DecoySchema>();
-  @type("string") hostId: string = "";
-  @type("boolean") gameStarted: boolean = false;
-  @type("number") roundTimeRemaining: number = 0;
-  @type("number") roundLength: number = 120;
-  @type("string") mapName: string = "arena";
-  @type("number") roundLengthNum: number = 120;
-  @type("boolean") powerUpsEnabled: boolean = true;
+  players = new MapSchema<PlayerSchema>();
+  spawns = new MapSchema<PowerUpSpawnSchema>();
+  stickyPatches = new MapSchema<StickyPatchSchema>();
+  decoys = new MapSchema<DecoySchema>();
+  hostId: string = "";
+  gameStarted: boolean = false;
+  roundTimeRemaining: number = 0;
+  roundLength: number = 120;
+  mapName: string = "arena";
+  roundLengthNum: number = 120;
+  powerUpsEnabled: boolean = true;
 }
+
+type({ map: PlayerSchema })(TagRoomStateSchema.prototype, "players");
+type({ map: PowerUpSpawnSchema })(TagRoomStateSchema.prototype, "spawns");
+type({ map: StickyPatchSchema })(TagRoomStateSchema.prototype, "stickyPatches");
+type({ map: DecoySchema })(TagRoomStateSchema.prototype, "decoys");
+type("string")(TagRoomStateSchema.prototype, "hostId");
+type("boolean")(TagRoomStateSchema.prototype, "gameStarted");
+type("number")(TagRoomStateSchema.prototype, "roundTimeRemaining");
+type("number")(TagRoomStateSchema.prototype, "roundLength");
+type("string")(TagRoomStateSchema.prototype, "mapName");
+type("number")(TagRoomStateSchema.prototype, "roundLengthNum");
+type("boolean")(TagRoomStateSchema.prototype, "powerUpsEnabled");
 
 
