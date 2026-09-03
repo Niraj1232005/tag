@@ -10,3 +10,4 @@ export const MAX_FALL_SPEED = 16;
 export const POWER_UP_ICON_SIZE = 20;
 export const HUD_HEIGHT = 48;
 export const GAME_TICK_MS = 1000 / 60;
+export const TAG_COOLDOWN_MS = 1000;

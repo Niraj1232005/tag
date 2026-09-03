@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import * as Colyseus from "colyseus.js";
 import {
   type PlayerState,
@@ -53,15 +53,20 @@ function lobbyPlayerToState(player: any): PlayerState {
 export default function OnlineGame() {
   const { roomId } = useParams<{ roomId: string }>();
   const normalizedRoomCode = (roomId ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const myName = searchParams.get("name") ?? "Player";
-  const isHost = searchParams.get("host") === "true";
-  const hostKey = searchParams.get("hostKey") ?? undefined;
-  const roundLengthParam = searchParams.get("roundLength") ?? "120";
-  const mapNameParam = searchParams.get("mapName") ?? "arena";
-  const powerUpsEnabledParam = searchParams.get("powerUpsEnabled") ?? "true";
-  const searchString = searchParams.toString();
+  const roomOptions = useMemo(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(`tag-room-options:${normalizedRoomCode}`) ?? "{}");
+    } catch {
+      return {};
+    }
+  }, [normalizedRoomCode]);
+  const myName = roomOptions.name ?? "Player";
+  const isHost = roomOptions.host === true;
+  const hostKey = roomOptions.hostKey;
+  const roundLength = Number(roomOptions.roundLength ?? 120);
+  const mapName = roomOptions.mapName ?? "arena";
+  const powerUpsEnabled = roomOptions.powerUpsEnabled !== false;
 
   const [status, setStatus] = useState<"connecting" | "lobby" | "playing" | "ended">("connecting");
   const [players, setPlayers] = useState<PlayerState[]>([]);
@@ -76,9 +81,12 @@ export default function OnlineGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keysRef = useRef<Record<string, boolean>>({});
   const rafRef = useRef<number>(0);
+  const connectedRef = useRef(false);
 
   useEffect(() => {
     const connect = async () => {
+      if (connectedRef.current) return;
+      connectedRef.current = true;
       try {
         const client = new Colyseus.Client(COLYSEUS_URL);
         clientRef.current = client;
@@ -93,9 +101,9 @@ export default function OnlineGame() {
             room = await client.create("tag_room", {
               ...joinOptions,
               config: {
-                roundLength: Number(roundLengthParam),
-                mapName: mapNameParam,
-                powerUpsEnabled: powerUpsEnabledParam !== "false",
+                roundLength,
+                mapName,
+                powerUpsEnabled,
               },
             });
           }
@@ -108,8 +116,15 @@ export default function OnlineGame() {
         setConnectionError("");
 
         if (normalizedRoomCode === "NEW") {
-          const params = new URLSearchParams(searchString);
-          window.history.replaceState(null, "", `/online/${publicRoomCode}?${params.toString()}`);
+          sessionStorage.setItem(`tag-room-options:${publicRoomCode}`, JSON.stringify({
+            host: true,
+            name: myName,
+            roundLength,
+            mapName,
+            powerUpsEnabled,
+            hostKey,
+          }));
+          window.history.replaceState(null, "", `/online/${publicRoomCode}`);
         }
 
         const syncState = (state: any) => {
@@ -136,7 +151,6 @@ export default function OnlineGame() {
           setServerHostId(frame.hostId ?? "");
           if (frame.roomCode) setActualRoomId(String(frame.roomCode).toUpperCase().replace(/[^A-Z0-9]/g, ""));
         });
-        syncState(room.state);
         room.send("requestLobbyState");
 
         room.onMessage("gameStarted", () => {
@@ -160,11 +174,14 @@ export default function OnlineGame() {
     connect();
 
     return () => {
+      connectedRef.current = false;
       gameFrameRef.current = null;
       roomRef.current?.leave();
+      clientRef.current = null;
+      roomRef.current = null;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [myName, isHost, hostKey, normalizedRoomCode, roundLengthParam, mapNameParam, powerUpsEnabledParam, searchString]);
+  }, [myName, isHost, hostKey, normalizedRoomCode, roundLength, mapName, powerUpsEnabled]);
 
   useEffect(() => {
     if (status !== "playing") return;

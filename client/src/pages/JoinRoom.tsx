@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { randomPlayerName } from "../playerNames.js";
 
 export default function JoinRoom() {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState("");
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(() => randomPlayerName());
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
 
@@ -13,8 +14,12 @@ export default function JoinRoom() {
     setJoining(true);
     setError("");
 
-    const code = roomCode.trim();
-    navigate(`/online/${encodeURIComponent(code)}?host=false&name=${encodeURIComponent(playerName.trim())}`);
+    const code = roomCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    sessionStorage.setItem(`tag-room-options:${code}`, JSON.stringify({
+      host: false,
+      name: playerName.trim(),
+    }));
+    navigate(`/online/${encodeURIComponent(code)}`);
   };
 
   return (

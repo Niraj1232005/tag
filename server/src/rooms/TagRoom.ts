@@ -19,6 +19,7 @@ import {
   SPEED_SURGE_MULTIPLIER,
   PLAYER_SIZE,
   TAG_RADIUS,
+  TAG_COOLDOWN_MS,
   POWER_UP_PICKUP_RADIUS,
   FREEZE_RADIUS,
   BINK_DASH_DISTANCE,
@@ -190,6 +191,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   private powerUpInterval: ReturnType<typeof setInterval> | null = null;
   private lastTick = Date.now();
   private playerInputs: Map<string, InputState> = new Map();
+  private tagCooldownMs = 0;
   private hostId: string | null = null;
   private hostKey: string | null = null;
   private config: RoomConfig = {
@@ -259,6 +261,10 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   }
 
   onJoin(client: Client, options: { name?: string; hostKey?: string }) {
+    if (this.s.players.has(client.sessionId)) {
+      console.log(`[JOIN] duplicate ignored for ${client.sessionId}`);
+      return;
+    }
     const playerIndex = this.s.players.size;
     if (!this.hostId || (this.hostKey && options.hostKey === this.hostKey)) {
       this.hostId = client.sessionId;
@@ -285,7 +291,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     this.playerInputs.set(client.sessionId, {
       up: false, down: false, left: false, right: false, usePowerUp: false,
     });
-
+    console.log(`[JOIN] ${client.sessionId} name="${player.name}"`);
     this.sendLobbyState();
   }
 
@@ -345,6 +351,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
   startGame() {
     this.s.gameStarted = true;
     this.s.roundTimeRemaining = this.config.roundLength;
+    this.tagCooldownMs = 0;
 
     const initialItId = this.hostId ?? playerList(this.s)[0]?.id ?? "";
     let idx = 0;
@@ -389,6 +396,9 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     this.lastTick = now;
 
     this.s.roundTimeRemaining -= dt / 1000;
+    if (this.tagCooldownMs > 0) {
+      this.tagCooldownMs = Math.max(0, this.tagCooldownMs - dt);
+    }
     if (this.s.roundTimeRemaining <= 0) {
       this.s.roundTimeRemaining = 0;
       this.endRound();
@@ -510,7 +520,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
     });
 
     const itPlayer = playerList(this.s).find(p => p.isIt);
-    if (itPlayer) {
+    if (itPlayer && this.tagCooldownMs <= 0) {
       for (const other of this.s.players.values()) {
         if (other.id === itPlayer.id) continue;
         if (!other.alive) continue;
@@ -526,6 +536,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
           itPlayer.isIt = false;
           other.isIt = true;
           itPlayer.score += 1;
+          this.tagCooldownMs = TAG_COOLDOWN_MS;
 
           this.broadcast("tag", {
             taggerId: itPlayer.id,
@@ -633,6 +644,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
 
   endRound() {
     this.s.gameStarted = false;
+    this.tagCooldownMs = 0;
 
     if (this.tickInterval) {
       clearInterval(this.tickInterval);

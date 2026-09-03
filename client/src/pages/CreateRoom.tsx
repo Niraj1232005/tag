@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MAP_NAMES } from "chase-tag-shared";
+import { randomPlayerName } from "../playerNames.js";
 
 const MAP_KEYS = Object.keys(MAP_NAMES);
 const ROOM_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -15,7 +16,7 @@ function generateRoomCode(length = 6) {
 
 export default function CreateRoom() {
   const navigate = useNavigate();
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(() => randomPlayerName());
   const [roundLength, setRoundLength] = useState<60 | 120 | 180>(120);
   const [selectedMap, setSelectedMap] = useState("arena");
   const [powerUps, setPowerUps] = useState(true);
@@ -26,15 +27,15 @@ export default function CreateRoom() {
     setCreating(true);
 
     const code = generateRoomCode();
-    const params = new URLSearchParams({
-      host: "true",
+    sessionStorage.setItem(`tag-room-options:${code}`, JSON.stringify({
+      host: true,
       name: playerName.trim(),
-      roundLength: String(roundLength),
+      roundLength,
       mapName: selectedMap,
-      powerUpsEnabled: String(powerUps),
+      powerUpsEnabled: powerUps,
       hostKey: crypto.randomUUID(),
-    });
-    navigate(`/online/${code}?${params.toString()}`);
+    }));
+    navigate(`/online/${code}`);
   };
 
   return (

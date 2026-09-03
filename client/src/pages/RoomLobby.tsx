@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { PLAYER_COLORS } from "chase-tag-shared";
 
 interface LobbyPlayer {
@@ -11,11 +11,18 @@ interface LobbyPlayer {
 
 export default function RoomLobby() {
   const { roomId } = useParams<{ roomId: string }>();
-  const [searchParams] = useSearchParams();
+  const normalizedRoomCode = (roomId ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const navigate = useNavigate();
+  const roomOptions = useMemo(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(`tag-room-options:${normalizedRoomCode}`) ?? "{}");
+    } catch {
+      return {};
+    }
+  }, [normalizedRoomCode]);
 
-  const isHost = searchParams.get("host") === "true";
-  const myName = searchParams.get("name") ?? "Player";
+  const isHost = roomOptions.host === true;
+  const myName = roomOptions.name ?? "Player";
 
   const [players, setPlayers] = useState<LobbyPlayer[]>([
     {
