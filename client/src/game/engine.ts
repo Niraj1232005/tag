@@ -278,27 +278,18 @@ export function updateLocalGame(
     if (player.y >= state.map.height - PLAYER_SIZE * 2) player.vy = 0;
   }
 
-  // Power-up pickup
+  // Power-up pickup (auto-activate immediately)
   for (const player of state.players) {
     for (let si = state.spawns.length - 1; si >= 0; si--) {
       const spawn = state.spawns[si];
       if (dist(player, spawn) < POWER_UP_PICKUP_RADIUS) {
-        if (!player.heldPowerUp) {
-          player.heldPowerUp = spawn.type;
-          state.spawns.splice(si, 1);
+        if (player.powerUpCooldown <= 0) {
+          activatePowerUp(state, player, spawn.type);
+          const config = POWER_UP_CONFIGS[spawn.type];
+          player.powerUpCooldown = config.cooldownMs;
         }
+        state.spawns.splice(si, 1);
       }
-    }
-  }
-
-  // Use power-up
-  for (const player of state.players) {
-    const input = inputs[state.players.indexOf(player)];
-    if (input?.usePowerUp && player.heldPowerUp && player.powerUpCooldown <= 0) {
-      activatePowerUp(state, player, player.heldPowerUp);
-      const config = POWER_UP_CONFIGS[player.heldPowerUp];
-      player.powerUpCooldown = config.cooldownMs;
-      player.heldPowerUp = null;
     }
   }
 

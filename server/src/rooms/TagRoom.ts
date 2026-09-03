@@ -497,7 +497,14 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
       const consumed: string[] = [];
       this.s.spawns.forEach((spawn, key) => {
         if (dist(player.x + PLAYER_SIZE, player.y + PLAYER_SIZE, spawn.x, spawn.y) < POWER_UP_PICKUP_RADIUS) {
-          player.heldPowerUp = spawn.type;
+          if (player.powerUpCooldown <= 0) {
+            const type = POWER_UP_INDEX_TO_TYPE[spawn.type];
+            if (type) {
+              this.activatePowerUp(player, type);
+              const config = POWER_UP_CONFIGS[type as PowerUpType];
+              player.powerUpCooldown = config.cooldownMs;
+            }
+          }
           consumed.push(key);
         }
       });
@@ -506,15 +513,7 @@ export class TagRoom extends (Room as unknown as typeof RoomType) {
 
     this.s.players.forEach((player, sessionId) => {
       const input = this.playerInputs.get(sessionId);
-      if (input?.usePowerUp && player.heldPowerUp >= 0 && player.powerUpCooldown <= 0) {
-        const type = POWER_UP_INDEX_TO_TYPE[player.heldPowerUp];
-        if (!type) return;
-        this.activatePowerUp(player, type);
-        const config = POWER_UP_CONFIGS[type as PowerUpType];
-        player.powerUpCooldown = config.cooldownMs;
-        player.heldPowerUp = -1;
-        input.usePowerUp = false;
-      }
+      if (input) input.usePowerUp = false;
     });
 
     const itPlayer = playerList(this.s).find(p => p.isIt);

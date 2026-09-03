@@ -106,19 +106,8 @@ export function renderGame(
     // Name tag
     ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillStyle = player.isIt ? "#FF4444" : "#FFFFFF";
-    ctx.fillText(
-      player.name,
-      player.x + PLAYER_SIZE,
-      player.y - 8
-    );
-
-    // "IT" label
-    if (player.isIt) {
-      ctx.font = "bold 13px sans-serif";
-      ctx.fillStyle = "#FF6B6B";
-      ctx.fillText("IT", player.x + PLAYER_SIZE, player.y - 22);
-    }
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(player.name, player.x + PLAYER_SIZE, player.y - 8);
   }
 
   ctx.restore();
@@ -148,8 +137,8 @@ function drawPlayer(
   roundRect(ctx, x + 7, y + 8, PLAYER_SIZE * 2 - 14, PLAYER_SIZE + 7, 5);
   ctx.fill();
 
-  ctx.strokeStyle = isIt ? "#FF2D2D" : "#FFFFFF";
-  ctx.lineWidth = isIt ? 3 : 2;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
   roundRect(ctx, x + 3, y + 5, PLAYER_SIZE * 2 - 6, PLAYER_SIZE * 2 - 3, 8);
   ctx.stroke();
 
@@ -175,6 +164,27 @@ function drawPlayer(
       ctx.lineTo(ix, iy + 3);
       ctx.stroke();
     }
+  }
+
+  // "IT" arrow indicator above the player
+  if (isIt) {
+    const arrowY = y - 18;
+    ctx.fillStyle = "#FF6B6B";
+    ctx.save();
+    ctx.translate(cx, arrowY);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-7, 9);
+    ctx.lineTo(7, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.lineTo(0, 16);
+    ctx.strokeStyle = "#FF6B6B";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -247,7 +257,6 @@ export function renderHUD(
   ctx.lineTo(canvasW, HUD_HEIGHT);
   ctx.stroke();
 
-  const itPlayer = state.players.find(p => p.isIt);
   const timeLeft = Math.ceil(state.roundTimeRemaining);
 
   // Timer
@@ -255,14 +264,6 @@ export function renderHUD(
   ctx.textAlign = "center";
   ctx.fillStyle = timeLeft <= 10 ? "#FF4444" : "#FFFFFF";
   ctx.fillText(formatTime(timeLeft), canvasW / 2, 32);
-
-  // "IT" indicator
-  if (itPlayer) {
-    ctx.font = "bold 14px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#FF6B6B";
-    ctx.fillText(`🔴 ${itPlayer.name} is IT`, 20, 32);
-  }
 
   // Power-ups on right
   const localPlayer = state.players[localPlayerIndex];

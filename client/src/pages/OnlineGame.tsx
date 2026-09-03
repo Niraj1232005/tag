@@ -204,12 +204,13 @@ export default function OnlineGame() {
     const sendInput = () => {
       const room = roomRef.current;
       if (!room) return;
+      const k = keysRef.current;
       room.send("input", {
-        up: !!keysRef.current["w"],
-        down: !!keysRef.current["s"],
-        left: !!keysRef.current["a"],
-        right: !!keysRef.current["d"],
-        usePowerUp: !!keysRef.current["e"],
+        up: !!k["w"] || !!k["ArrowUp"] || !!k["8"],
+        down: !!k["s"] || !!k["ArrowDown"] || !!k["5"],
+        left: !!k["a"] || !!k["ArrowLeft"] || !!k["4"],
+        right: !!k["d"] || !!k["ArrowRight"] || !!k["6"],
+        usePowerUp: !!k["e"],
       });
       keysRef.current["e"] = false;
     };
@@ -405,14 +406,8 @@ function renderOnlineGame(
       ctx.globalAlpha = 1;
 
       ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
-      ctx.fillStyle = player.isIt ? "#FF4444" : "#FFFFFF";
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillText(player.name, player.x + PLAYER_SIZE, player.y - 8);
-
-      if (player.isIt) {
-        ctx.font = "bold 13px sans-serif";
-        ctx.fillStyle = "#FF6B6B";
-        ctx.fillText("IT", player.x + PLAYER_SIZE, player.y - 22);
-      }
     });
   }
 
@@ -440,8 +435,8 @@ function drawOnlinePlayer(
   roundOnlineRect(ctx, x + 7, y + 8, PLAYER_SIZE * 2 - 14, PLAYER_SIZE + 7, 5);
   ctx.fill();
 
-  ctx.strokeStyle = isIt ? "#FF2D2D" : "#FFFFFF";
-  ctx.lineWidth = isIt ? 3 : 2;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
   roundOnlineRect(ctx, x + 3, y + 5, PLAYER_SIZE * 2 - 6, PLAYER_SIZE * 2 - 3, 8);
   ctx.stroke();
 
@@ -451,6 +446,26 @@ function drawOnlinePlayer(
   ctx.fillStyle = "#111827";
   ctx.beginPath(); ctx.arc(cx - 5, cy - 2, 1.2, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(cx + 5, cy - 2, 1.2, 0, Math.PI * 2); ctx.fill();
+
+  if (isIt) {
+    const arrowY = y - 18;
+    ctx.save();
+    ctx.translate(cx, arrowY);
+    ctx.fillStyle = "#FF6B6B";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-7, 9);
+    ctx.lineTo(7, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.lineTo(0, 16);
+    ctx.strokeStyle = "#FF6B6B";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function renderOnlineStageBackground(ctx: CanvasRenderingContext2D, map: GameMap) {
@@ -519,18 +534,6 @@ function renderOnlineHUD(ctx: CanvasRenderingContext2D, state: any, canvasW: num
   ctx.font = "bold 20px monospace"; ctx.textAlign = "center";
   ctx.fillStyle = timeLeft <= 10 ? "#FF4444" : "#FFFFFF";
   ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, canvasW / 2, 32);
-
-  let itName = "";
-  if (state.players) {
-    state.players.forEach((p: any) => {
-      if (p.isIt) itName = p.name;
-    });
-  }
-  if (itName) {
-    ctx.font = "bold 14px sans-serif"; ctx.textAlign = "left";
-    ctx.fillStyle = "#FF6B6B";
-    ctx.fillText(`🔴 ${itName} is IT`, 20, 32);
-  }
 
   if (state.players) {
     const list: any[] = [];
