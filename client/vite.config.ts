@@ -8,7 +8,9 @@ export default defineConfig({
     alias: {
       "chase-tag-shared": fileURLToPath(new URL("../shared/src/browser.ts", import.meta.url)),
     },
-    dedupe: ["@colyseus/schema"],
+  },
+  optimizeDeps: {
+    include: ["colyseus.js", "@colyseus/schema"],
   },
   server: {
     port: 3000,
